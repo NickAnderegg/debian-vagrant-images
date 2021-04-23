@@ -1,0 +1,58 @@
+name: build Parallels box for Vagrant
+
+on:
+  push:
+    branches:
+      - main
+      - macos-builder
+
+  # Allows triggering this workflow manually from the Actions tab
+  workflow_dispatch:
+
+env:
+  CI_PIPELINE_IID: ${{ github.run_id }}
+
+jobs:
+  build-img:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Cache dependencies
+        uses: actions/cache@v1
+        with:
+          path: |
+            /var/cache/apt/archives
+          key: ${{ runner.os }}-packages
+
+      - name: Install build environment
+        run: |
+          sudo apt update
+          sudo apt install vagrant vagrant-libvirt virtualbox
+          sudo make install-build-deps
+
+      - name: Build raw image
+        run: |
+          make buster-vagrant-amd64
+
+      - name: Test regular VirtualBox process
+        run: |
+          make build-virtualbox-buster-vagrant-amd64
+
+          make test-virtualbox-bullseye-vagrant-amd64
+
+  build-pvm:
+    runs-on: macos-10.15
+    # needs: build-img
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install build environment
+        run: |
+          brew update
+          brew install parallels
+          mkdir build-output
+          prlctl create debian-vagrant-test --distribution=debian --location build-output
+          prlctl list --info --full

@@ -23,7 +23,7 @@ help:
 	./bin/debian-cloud-images build \
 	  $(subst -, ,$*) \
 	  --build-id $(CLOUD_IMAGE_BUILD_ID) \
-	  --build-type official
+	  --build-type dev
 
 install-build-deps:
 	sudo apt install -y --no-install-recommends ca-certificates debsums dosfstools \
@@ -61,6 +61,12 @@ upload-libvirt-%:
 	trickle -su 128  utils/vagrant/release \
 		libvirt-debian-$*-official-$$(date '+%Y%m%d')-$${CI_PIPELINE_IID}.box \
        $(NAMESPACE) $(IS_RELEASE)
+
+build-parallels-%:
+	test -f debian-$*-unofficial-$(VERSION).raw || $(MAKE) $*
+	test -f parallels-debian-$*-unofficial-$(VERSION).box || \
+	  utils/vagrant/parallels/create-vagrant-parallels-box \
+	  debian-$*-official-$$(date '+%Y%m%d')-$${CI_PIPELINE_IID}.raw
 
 build-virtualbox-%:
 	test -f debian-$*-official-$(VERSION).raw || $(MAKE) $*
