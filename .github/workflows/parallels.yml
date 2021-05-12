@@ -13,34 +13,34 @@ env:
   CI_PIPELINE_IID: ${{ github.run_id }}
 
 jobs:
-  build-img:
-    runs-on: ubuntu-latest
+  # build-img:
+  #   runs-on: ubuntu-latest
 
-    steps:
-      - uses: actions/checkout@v2
+  #   steps:
+  #     - uses: actions/checkout@v2
 
-      - name: Cache dependencies
-        uses: actions/cache@v1
-        with:
-          path: |
-            /var/cache/apt/archives
-          key: ${{ runner.os }}-packages
+  #     - name: Cache dependencies
+  #       uses: actions/cache@v1
+  #       with:
+  #         path: |
+  #           /var/cache/apt/archives
+  #         key: ${{ runner.os }}-packages
 
-      - name: Install build environment
-        run: |
-          sudo apt update
-          sudo apt install vagrant vagrant-libvirt virtualbox
-          sudo make install-build-deps
+  #     - name: Install build environment
+  #       run: |
+  #         sudo apt update
+  #         sudo apt install vagrant vagrant-libvirt virtualbox
+  #         sudo make install-build-deps
 
-      - name: Build raw image
-        run: |
-          make buster-vagrant-amd64
+  #     - name: Build raw image
+  #       run: |
+  #         make buster-vagrant-amd64
 
-      - name: Test regular VirtualBox process
-        run: |
-          make build-virtualbox-buster-vagrant-amd64
+  #     - name: Test regular VirtualBox process
+  #       run: |
+  #         make build-virtualbox-buster-vagrant-amd64
 
-          make test-virtualbox-bullseye-vagrant-amd64
+  #         make test-virtualbox-bullseye-vagrant-amd64
 
   build-pvm:
     runs-on: macos-10.15
@@ -49,10 +49,44 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - name: Cache dependencies
+        uses: actions/cache@v1
+        with:
+          path: |
+            ~/Library/Caches/Homebrew
+            /usr/local/Homebrew
+            /usr/local/Cellar
+            /usr/local/opt/python@3.7
+            /Applications/Parallels Desktop.app
+            /Library/Frameworks/ParallelsVirtualizationSDK.framework
+          key: ${{ runner.os }}-packages
+          restore-keys: |
+            ${{ runner.os }}-
+
       - name: Install build environment
         run: |
-          brew update
-          brew install parallels
-          mkdir build-output
-          prlctl create debian-vagrant-test --distribution=debian --location build-output
-          prlctl list --info --full
+          brew update --preinstall # > /dev/null 2>&1
+          brew install --quiet parallels python@3.7
+
+          echo 'export PATH="/usr/local/opt/python@3.7/bin:$PATH"' >> /Users/runner/.bash_profile
+          export PATH="/usr/local/opt/python@3.7/bin:${PATH}"
+          echo PATH="${PATH}" >> $GITHUB_ENV
+
+          sudo tar -xzvf utils/vagrant/parallels/ParallelsVirtualizationSDK.framework.tar.gz -C /
+
+      - name: Test prlsrv
+        run: |
+          prlsrvctl deferred-license --install
+          prlsrvctl info --full --json | jq
+
+      - name: Test prlsrv
+        run: |
+          prlsrvctl update-license
+          prlsrvctl info --full --json | jq
+
+      - name: Test import script
+        run: |
+          export PYTHONPATH="/Library/Frameworks/ParallelsVirtualizationSDK.framework/Libraries/Python/3.7"
+          python3.7 utils/vagrant/parallels/import2prl
+          # prlctl create debian-vagrant-test --distribution=debian --location build-output
+          # prlctl list --info --full

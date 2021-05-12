@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+
+from pprint import pprint
+
+# Import the main Parallels Python API package.
+import prlsdkapi
+
+# Import some of the standard Python modules.
+# We will not use all of them in this sample, but
+# we will use them in other samples later.
+import sys, time, getopt, operator, re, random
+
+# Define constants for easy referencing of the Parallels Python API modules.
+consts = prlsdkapi.prlsdk.consts
+
+# An exception class to use to terminate the program.
+class Halt(Exception):
+    pass
+
+
+"""
+Parallels Service login.
+    @param server: A new instance of the prlsdkapi.Server class.
+    @param user: User name (must be a valid host OS user).
+    @param password: User password.
+    @param security_level: Connection secuirty level. Must be one of the
+                           prlsdk.consts.PSL_xxx constants.
+"""
+
+
+def login_server(server, user, password, security_level):
+    try:
+        # The call returns a prlsdkapi.Result object on success.
+        result = server.login_local("", 0, security_level).wait()
+    except prlsdkapi.PrlSDKError as e:
+        print(f"Login error: {e}")
+        raise Halt
+
+    # Obtain a LoginResponse object contained in the Result object.
+    # LoginResponse contains the results of the login operation.
+    login_response = result.get_param()
+
+    # Get the Parallels Desktop version number.
+    product_version = login_response.get_product_version()
+
+    # Get the host operating system version.
+    host_os_version = login_response.get_host_os_version()
+
+    # Get the host UUID.
+    host_uuid = login_response.get_server_uuid()
+
+    print(
+        (
+            f"Login successful\n"
+            f"\n"
+            f"\nParallels Desktop version: {product_version}"
+            f"\nHost OS verions:           {host_os_version}"
+            f"\nHost UUID:                 {host_uuid}"
+            f"\n"
+        )
+    )
+
+
+###################################################################################
+def main():
+    # Initialize the library for Parallels Desktop.
+    prlsdkapi.init_desktop_sdk()
+
+    # Create a Server object and log in to Parallels Desktop.
+    server = prlsdkapi.Server()
+    login_server(server, "root", "secret", consts.PSL_NORMAL_SECURITY)
+
+    stats = server.get_license_info()
+    stats.wait()
+    pprint(stats.get_result().get_param().get_license_key())  # .get_real_ram_size())
+
+    # Log off and deinitialize the library.
+    server.logoff()
+    prlsdkapi.deinit_sdk()
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except Halt:
+        pass
